@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  This is the main template for the application, with
+  all the resources defined as nested CloudFormation
+  stacks.
+
+Parameters:
+  EnvironmentName:
+    Description: The name of the environment we're deploying, used in tags and for resource identification
+    Type: String
+    Default: decoupled-sqs-application
+
+Resources:
