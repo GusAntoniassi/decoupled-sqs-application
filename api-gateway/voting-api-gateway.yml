@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  This template deploys an API gateway with a resource
+  to the /vote path, pointing to an AWS Lambda function.
+
+Parameters:
+  EnvironmentName:
+    Description: This specifies the name of the environment
+    Type: String
+  ApiGatewayResourcePath:
+    Description: This is the path of the resource that will be created
+    Type: String
+    Default: "vote"
+  LambdaStackName:
+    Type: String
+    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
+    Default: "voting-lambda"
+
+Resources:
+  ApiGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: !Sub "${EnvironmentName}-voting-apig"
+      Description: "Gateway for the voting API"
+
+  ApiGatewayVoteResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !GetAtt
+        - ApiGateway
+        - "RootResourceId"
+      PathPart: !Ref ApiGatewayResourcePath
+      RestApiId: !Ref ApiGateway
+
+  ApiGatewayVoteMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "POST"
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+          - lambdaArn:
+              Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+      ResourceId: !Ref ApiGatewayVoteResource
+      RestApiId: !Ref ApiGateway
+
+  ApiGatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn:
+      - ApiGatewayVoteMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: "v1"
+
+  LambdaApiGatewayInvoke:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName:
+        Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/*"
+
+Outputs:
+  ApiGatewayInvokeURL:
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiGatewayResourcePath}"
+  FunctionName:
+    Value:
+      Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+  SourceArn:
+    Value: !Sub
+      - "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/${lambdaName}"
+      - lambdaName:
+          Fn::ImportValue: !Sub "${LambdaStackName}-lambda-name"
