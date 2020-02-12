@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  This is the template for deploying an S3 bucket with
-  static website hosting enabled. Based on the following AWS
-  template: https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/S3_Website_With_CloudFront_Distribution.template
+  This template deploys an S3 bucket with static website hosting enabled. 
+  Based on the following AWS template: 
+  https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/S3_Website_With_CloudFront_Distribution.template
 
 Parameters:
   EnvironmentName:
