@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  This template deploys an SQS queue with a CloudWatch alarm configured to 
+  monitor the queue depth. 
+  This template was created based on the following example template: 
+  https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/SQS_With_CloudWatch_Alarms.template
+
+Parameters:
+  EnvironmentName:
+    Description: This specifies the name of the environment
+    Type: String
+
+Resources:
+  VotingQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: !Sub "${EnvironmentName}-voting-queue"
+Outputs:
+  QueueURL:
+    Description: URL of newly created SQS Queue
+    Value: !Ref VotingQueue
+  QueueARN:
+    Description: ARN of newly created SQS Queue
+    Value: !GetAtt 
+      - VotingQueue
+      - Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-queue-arn"
+  QueueName:
+    Description: Name newly created SQS Queue
+    Value: !GetAtt 
+      - VotingQueue
+      - QueueName
+    Export:
+      Name: !Sub "${AWS::StackName}-queue-name"
