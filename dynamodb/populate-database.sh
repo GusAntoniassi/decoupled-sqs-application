@@ -45,5 +45,7 @@ EOF
         --table-name "$TABLE_NAME" \
         --item "$item_json"
 
+    echo "Inserted $ide_key"
+
     sleep 1 # Give AWS API a time to breathe
 done
