@@ -22,13 +22,9 @@ Resources:
       AttributeDefinitions:
         - AttributeName: _id
           AttributeType: S
-        - AttributeName: votes
-          AttributeType: N
       KeySchema:
         - AttributeName: _id
           KeyType: HASH
-        - AttributeName: votes
-          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: !Ref ReadCapacityUnits
         WriteCapacityUnits: !Ref WriteCapacityUnits
