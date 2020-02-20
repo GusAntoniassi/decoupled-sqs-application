@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  This template creates a DynamoDB table for storing the user votes
+Parameters:
+  EnvironmentName:
+    Description: The name of the environment we're deploying in
+    Type: String
+  # These are testing values. Ideally for this kind of workload you would use on-demand DynamoDB
+  ReadCapacityUnits:
+    Description: Number of provisioned RCUs for this table 
+    Type: Number
+    Default: 10
+  WriteCapacityUnits:
+    Description: Number of provisioned WCUs for this table 
+    Type: Number
+    Default: 10
+Resources:
+  VotingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${EnvironmentName}-voting-table"
+      AttributeDefinitions:
+        - AttributeName: _id
+          AttributeType: S
+        - AttributeName: votes
+          AttributeType: N
+      KeySchema:
+        - AttributeName: _id
+          KeyType: HASH
+        - AttributeName: votes
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref ReadCapacityUnits
+        WriteCapacityUnits: !Ref WriteCapacityUnits
+Outputs:
+  TableName:
+    Value: !Ref VotingTable
+    Description: Name of the newly created DynamoDB table
+  TableArn:
+    Value: !GetAtt VotingTable.Arn
+    Description: ARN of the newly created DynamoDB table
