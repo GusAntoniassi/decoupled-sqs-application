@@ -10,11 +10,10 @@ Parameters:
   ApiGatewayResourcePath:
     Description: This is the path of the resource that will be created
     Type: String
-    Default: "vote"
-  LambdaStackName:
+  LambdaName:
     Type: String
-    AllowedPattern: "^[a-zA-Z][-a-zA-Z0-9]*$"
-    Default: "voting-lambda"
+  LambdaArn:
+    Type: String
 
 Resources:
   ApiGateway:
@@ -40,10 +39,36 @@ Resources:
       Integration:
         IntegrationHttpMethod: "POST"
         Type: "AWS_PROXY"
-        Uri: !Sub
-          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
-          - lambdaArn:
-              Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+      ResourceId: !Ref ApiGatewayVoteResource
+      RestApiId: !Ref ApiGateway
+  
+  ApiGatewayOptionsMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "OPTIONS"
+      Integration:
+        Type: "MOCK"
+        IntegrationResponses:
+          - ResponseParameters: 
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+            StatusCode: 200
+        PassthroughBehavior: NEVER
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters: 
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+          StatusCode: 200
       ResourceId: !Ref ApiGatewayVoteResource
       RestApiId: !Ref ApiGateway
 
@@ -59,19 +84,14 @@ Resources:
     Type: "AWS::Lambda::Permission"
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName:
-        Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+      FunctionName: !Ref LambdaArn
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/*"
 
 Outputs:
   ApiGatewayInvokeURL:
-    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiGatewayResourcePath}"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/v1/${ApiGatewayResourcePath}"
   FunctionName:
-    Value:
-      Fn::ImportValue: !Sub "${LambdaStackName}-lambda-arn"
+    Value: !Ref LambdaArn
   SourceArn:
-    Value: !Sub
-      - "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/${lambdaName}"
-      - lambdaName:
-          Fn::ImportValue: !Sub "${LambdaStackName}-lambda-name"
+    Value: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/${LambdaName}"

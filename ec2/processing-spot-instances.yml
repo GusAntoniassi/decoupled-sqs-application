@@ -1,0 +1,247 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  This template deploys an AutoScalingGroup of Spot Instances configured with the 
+  processing code application, (available at https://github.com/GusAntoniassi/decoupled-sqs-application-processing-code).
+  The ASG is configured to scale up or down based on the number of messasges in the SQS queue.
+Parameters:
+  EnvironmentName:
+    Description: This specifies the name of the environment
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VpcId of your existing Virtual Private Cloud (VPC)
+    ConstraintDescription: must be the VPC Id of an existing Virtual Private Cloud.
+    Default: vpc-070d7af747d3745f2
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The list of SubnetIds in your Virtual Private Cloud (VPC)
+    ConstraintDescription: >-
+      must be a list of at least two existing subnets associated with at least
+      two different availability zones. They should be residing in the selected
+      Virtual Private Cloud.
+    Default: subnet-0ee72c567af8587ef,subnet-06c6586828dae4205 # @TODO: Change this when using nested stacks
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t3.nano
+  KeyName:
+    Description: The EC2 Key Pair to allow SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+    Default: gus-samsung-ohio # @TODO: Change this
+  InstanceAMI:
+    Description: >-
+      The AMI to use in the EC2 spot instances. Depending on your region,
+      you might need to change this parameter. The default value is an
+      Amazon Linux image in Ohio (us-east-2).
+    Type: "String"
+    Default: ami-02ccb28830b645a41
+  SpotPrice:
+    Description: Spot price for application AutoScaling Group
+    Type: Number
+    MinValue: '0'
+    Default: 0.002
+  QueueName:
+    Description: The SQS stack name, to use in the ec2 scaling alarm
+    Type: String
+    Default: voting-queue # @TODO: change this when using nested stacks
+  QueueURL:
+    Description: The SQS stack name, to use in the ec2 scaling alarm
+    Type: String
+    Default: "https://sqs.us-east-2.amazonaws.com/296193067842/decoupled-sqs-application-voting-queue" # @TODO: change this when using nested stacks
+  DynamoTableName:
+    Description: The DynamoDB table name, to use in the processing script
+    Type: String
+    Default: "decoupled-sqs-application-voting-table" # @TODO: change this when using nested stacks
+Resources:
+  VoteProcessingAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref Subnets
+      LaunchConfigurationName: !Ref VoteProcessingLaunchConfiguration
+      MinSize: "1" # @TODO: Implement custom metric with ASG instance count and SQS messages in queue to allow a smarter scaling policy
+      MaxSize: "3"
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: true
+          Value: !Sub "${EnvironmentName}-processing-spot"
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+        Count: 0 # Since we allow the group to have 0 instances, we can't expect a signal here
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: true
+  VoteProcessingLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      Comment: Install a simple application
+      "AWS::CloudFormation::Init":
+        config:
+          files:
+            /etc/queue-endpoint:
+              content: !Join
+                - ""
+                - - !Ref QueueURL
+
+              mode: "000400"
+              owner: ec2-user
+              group: ec2-user
+
+            /etc/dynamo-tablename:
+              content: !Join
+                - ""
+                - - !Ref DynamoTableName
+
+              mode: "000400"
+              owner: ec2-user
+              group: ec2-user
+
+            /etc/supervisord.d/application.ini:
+              content: !Sub |
+                  [program:application]
+                  directory=/usr/local/application
+                  command=/usr/local/application/init.sh
+                  autostart=true
+                  autorestart=true
+                  stdout_logfile=/var/log/application.log
+                  redirect_stderr=true
+                  environment=AWS_DEFAULT_REGION=${AWS::Region}
+
+              mode: "000400"
+              owner: ec2-user
+              group: ec2-user
+    Properties:
+      SpotPrice: !Ref SpotPrice
+      KeyName: !Ref KeyName
+      ImageId: !Ref InstanceAMI
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref VoteProcessingEC2InstanceProfile
+      UserData: !Base64
+        Fn::Sub: |
+            #!/bin/bash -xe
+
+            amazon-linux-extras install epel -y
+
+            yum update -y aws-cli
+            yum install -y python3 supervisor git
+            curl https://bootstrap.pypa.io/get-pip.py | python3
+
+            /opt/aws/bin/cfn-init -v \
+              --stack ${AWS::StackName} \
+              --resource VoteProcessingLaunchConfiguration \
+              --region ${AWS::Region} 
+
+            git clone https://github.com/GusAntoniassi/decoupled-sqs-application-processing-code.git /usr/local/application/
+
+            systemctl enable supervisord
+            systemctl start supervisord
+
+            /opt/aws/bin/cfn-signal -e $? \
+              --stack ${AWS::StackName} \
+              --resource VoteProcessingAutoScalingGroup \
+              --region ${AWS::Region}
+
+  VoteProcessingScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref VoteProcessingAutoScalingGroup
+      Cooldown: "60"
+      ScalingAdjustment: "1"
+  VoteProcessingScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref VoteProcessingAutoScalingGroup
+      Cooldown: "60"
+      ScalingAdjustment: "-1"
+  VoteQueueScaleUpAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm if queue depth grows beyond 10 messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !Ref QueueName
+      Statistic: Sum
+      Period: "60"
+      EvaluationPeriods: "2"
+      Threshold: "10"
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref VoteProcessingScaleUpPolicy
+  VoteQueueScaleDownAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm if queue depth shrinks to 0 messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !Ref QueueName
+      Statistic: Sum
+      Period: "60"
+      EvaluationPeriods: "2"
+      Threshold: "0"
+      ComparisonOperator: LessThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref VoteProcessingScaleDownPolicy
+  
+  # This alarm would require creating a custom metric, since it would use metrics from
+  # the AWS/SQS and AWS/EC2 namespaces. May be implemented in a future version
+
+  # VoteQueueScaleUpWhenNoWorkers: 
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     AlarmDescription: Alarm if there is a message in queue and no workers
+  #     Namespace: AWS/SQS
+  #     MetricName: ApproximateNumberOfMessagesVisible
+  #     Dimensions:
+  #       - Name: QueueName
+  #         Value: !Ref QueueName
+  #     Statistic: Sum
+  #     Period: "60"
+  #     EvaluationPeriods: "2"
+  #     Threshold: "0"
+  #     ComparisonOperator: LessThanOrEqualToThreshold
+  #     AlarmActions:
+  #       - !Ref VoteProcessingScaleDownPolicy
+
+  VoteProcessingEC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref VoteProcessingEC2Role
+  VoteProcessingEC2Policy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Sub "${EnvironmentName}-processing-instance-policy"
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sqs:*'
+            Resource: !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*"
+          - Effect: Allow
+            Action:
+              - 'dynamodb:*'
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"
+      Roles:
+        - !Ref VoteProcessingEC2Role
+  VoteProcessingEC2Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub "${EnvironmentName}-processing-instance-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /

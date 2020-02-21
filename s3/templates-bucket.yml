@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  This template deploys an S3 bucket to host all the cloudformation templates. 
+  Based on the following AWS template: 
+  https://s3-us-east-2.amazonaws.com/cloudformation-templates-us-east-2/S3_Website_With_CloudFront_Distribution.template
+
+Parameters:
+  EnvironmentName:
+    Description: This specifies the name of the environment
+    Type: String
+
+
+Resources:
+  TemplatesBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName:
+        !Join # Generates a "random" hash for the bucket name, prefixed by the EnvironmentName
+        - "-"
+        - - !Sub "${EnvironmentName}-cloudformation-template"
+          - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+
+Outputs:
+  BucketName:
+    Description: Name of S3 bucket to hold cloudformation templates
+    Value: !Ref TemplatesBucket
+    Export: 
+      Name: !Sub "${AWS::StackName}-BucketName"
+  BucketUrl:
+    Description: Url of the bucket
+    Value: !Sub "https://${TemplatesBucket.DomainName}"
+    Export: 
+      Name: !Sub "${AWS::StackName}-BucketUrl"

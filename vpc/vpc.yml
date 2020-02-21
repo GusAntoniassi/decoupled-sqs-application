@@ -12,12 +12,22 @@ Resources:
     Type: 'AWS::EC2::VPC'
     Properties:
       CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-vpc"
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-igw"
   RouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-rtb"
   VPCGatewayAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:

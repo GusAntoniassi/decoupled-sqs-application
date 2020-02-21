@@ -5,15 +5,12 @@ Parameters:
   EnvironmentName:
     Description: The name of the environment we're deploying in
     Type: String
-  # These are testing values. Ideally for this kind of workload you would use on-demand DynamoDB
   ReadCapacityUnits:
     Description: Number of provisioned RCUs for this table 
     Type: Number
-    Default: 10
   WriteCapacityUnits:
     Description: Number of provisioned WCUs for this table 
     Type: Number
-    Default: 10
 Resources:
   VotingTable:
     Type: AWS::DynamoDB::Table

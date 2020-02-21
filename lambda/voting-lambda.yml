@@ -10,12 +10,12 @@ Parameters:
   SQSQueueName:
     Description: The SQS queue name where the lambda will send the vote message
     Type: String
-    Default: foobar
   LambdaName:
     Description: The lambda function's name
     Type: String
-    Default: decoupled-sqs-application-voting-lambda
-
+  TemplatesBucketName:
+    Description: The name of the bucket the source code resides in
+    Type: String
 
 Resources:
   LambdaFunction:
@@ -26,22 +26,66 @@ Resources:
       Handler: "index.handler"
       MemorySize: 128
       Role: !GetAtt "LambdaIAMRole.Arn"
-      Runtime: "python2.7"
+      Runtime: "python3.7"
       Timeout: 10
       Code:
-        ZipFile: |
+        # @TODO: pass this to a zip file, currently when I tried I got some "Unable to import module 'index'" errors
+        ZipFile: | 
+          import sys, json, boto3
+
           def handler(event,context):
-            return {
-              'body': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp']),
-              'headers': {
-                'Content-Type': 'text/plain'
-              },
-              'statusCode': 200
+            vote = ''
+            
+            responseHeaders = {
+              'Content-Type': 'text/plain',
+              'Access-Control-Allow-Origin': '*'
             }
 
+            try:
+              body = json.loads(event['body'])
+              vote = body['Vote']
+            except:
+              e = sys.exc_info()
+              
+              return {
+                'body': 'Invalid payload {0}\nError decoding JSON: {1}'.format(event['body'], str(e)),
+                'headers': responseHeaders,
+                'statusCode': 500
+              }
+              
+            try:
+              # Get the service resource
+              sqs = boto3.resource('sqs')
+              
+              # Get the queue
+              queue = sqs.get_queue_by_name(QueueName='decoupled-sqs-application-voting-queue')
+              
+              messageBody = '{{"Vote": "{0}"}}'.format(vote)
+              
+              # Create a new message
+              response = queue.send_message(MessageBody=messageBody)
+              
+              # The response is NOT a resource, but gives you a message ID and MD5
+              messageId = response.get('MessageId')
+            except Exception as e:
+              print(e)
+              
+              return {
+                'body': 'Error sending queue message: {0}'.format(str(e)),
+                'headers': responseHeaders,
+                'statusCode': 500
+              }
+            
+            return {
+              'body': '{0}'.format(messageId),
+              'headers': responseHeaders,
+              'statusCode': 200
+            }
+            
   LambdaIAMRole:
     Type: "AWS::IAM::Role"
     Properties:
+      RoleName: !Sub "${EnvironmentName}-lambda-iam-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -67,6 +111,10 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Action:
+                  - "sqs:ListQueues"
+                  - "sqs:ListQueueTags"
+                  - "sqs:GetQueueAttributes"
+                  - "sqs:GetQueueUrl"
                   - "sqs:SendMessage"
                 Effect: "Allow"
                 Resource:

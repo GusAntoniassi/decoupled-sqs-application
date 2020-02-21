@@ -2,19 +2,11 @@
 
 set -e
 
-AWS_REGION=${AWS_REGION:-"us-east-2"}
-STACK_NAME="voting-database"
-
-# Get the DynamoDB table name
-TABLE_NAME=$(aws cloudformation describe-stacks \
-    --region="$AWS_REGION" \
-    --stack-name="$STACK_NAME" \
-    --output=text \
-    --query='Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue'
-)
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"us-east-2"}
+TABLE_NAME=$1
 
 if [[ $(aws dynamodb scan \
-    --region="$AWS_REGION" \
+    --region="$AWS_DEFAULT_REGION" \
     --table-name="$TABLE_NAME" \
     --select='COUNT' \
     --query='Count' \
@@ -41,7 +33,7 @@ for i in "${!IDES_TO_INSERT[@]}"; do
 EOF
 )
     aws dynamodb put-item \
-        --region="$AWS_REGION" \
+        --region="$AWS_DEFAULT_REGION" \
         --table-name "$TABLE_NAME" \
         --item "$item_json"
 

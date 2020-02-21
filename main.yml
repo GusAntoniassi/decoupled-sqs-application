@@ -11,3 +11,118 @@ Parameters:
     Default: decoupled-sqs-application
 
 Resources:
+  VPC:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/vpc/vpc.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  StaticWebsite:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/s3/static-website.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  DynamoDB:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        # These are testing values. Ideally for this kind of workload you would use on-demand DynamoDB
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/dynamodb/voting-database.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  SQS:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/sqs/voting-queue.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  Lambda:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        SQSQueueName: !GetAtt SQS.Outputs.QueueName
+        LambdaName: !Sub "${EnvironmentName}-voting-lambda"
+        TemplatesBucketName: !ImportValue "templates-bucket-BucketName"
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/lambda/voting-lambda.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  APIGateway:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        LambdaArn: !GetAtt Lambda.Outputs.LambdaArn
+        LambdaName: !GetAtt Lambda.Outputs.LambdaName
+        ApiGatewayResourcePath: "vote"
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/api-gateway/voting-api-gateway.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+  EC2:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcId: !GetAtt VPC.Outputs.VpcID
+        Subnets: !GetAtt VPC.Outputs.SubnetIDs
+        InstanceType: t3.nano
+        QueueName: !GetAtt SQS.Outputs.QueueName
+        QueueURL: !GetAtt SQS.Outputs.QueueURL
+        DynamoTableName: !GetAtt DynamoDB.Outputs.TableName
+        KeyName: gus-samsung-ohio # @TODO: Change this
+        InstanceAMI: ami-02ccb28830b645a41 # You might need to change this based on your region
+        SpotPrice: 0.002 # You might change this based on your instance type
+      Tags:
+        - Key: Project
+          Value: !Ref EnvironmentName
+      TemplateURL: !Sub
+          - "${bucketUrl}/ec2/processing-spot-instances.yml"
+          - bucketUrl: !ImportValue "templates-bucket-BucketUrl"
+
+Outputs:
+  ApiGatewayUrl:
+    Description: URL of the API Gateway
+    Value: !GetAtt APIGateway.Outputs.ApiGatewayInvokeURL
+  StaticWebsiteBucketName:
+    Description: Name of the static website bucket
+    Value: !GetAtt StaticWebsite.Outputs.BucketName
+  StaticWebsiteBucketUrl:
+    Description: URL of the static website bucket
+    Value: !GetAtt StaticWebsite.Outputs.BucketURL
+  TableName:
+    Description: Name of the DynamoDB table
+    Value: !GetAtt DynamoDB.Outputs.TableName
