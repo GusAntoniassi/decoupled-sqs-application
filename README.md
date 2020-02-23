@@ -17,4 +17,8 @@ chmod +x ./deploy-stack.sh
 ./deploy-stack.sh
 ```
 
+## Presentation Slides
+
+[Link](docs/Decoupled_SQS_Application.pdf)
+
 ## More documentation coming soon
