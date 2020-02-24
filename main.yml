@@ -103,8 +103,6 @@ Resources:
         QueueName: !GetAtt SQS.Outputs.QueueName
         QueueURL: !GetAtt SQS.Outputs.QueueURL
         DynamoTableName: !GetAtt DynamoDB.Outputs.TableName
-        KeyName: gus-samsung-ohio # @TODO: Change this
-        InstanceAMI: ami-02ccb28830b645a41 # You might need to change this based on your region
         SpotPrice: 0.002 # You might change this based on your instance type
       Tags:
         - Key: Project

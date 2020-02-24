@@ -24,11 +24,6 @@ Parameters:
     Description: EC2 instance type
     Type: String
     Default: t3.nano
-  KeyName:
-    Description: The EC2 Key Pair to allow SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-    Default: gus-samsung-ohio # @TODO: Change this
   InstanceAMI:
     Description: >-
       The AMI to use in the EC2 spot instances. Depending on your region,
@@ -113,7 +108,7 @@ Resources:
               group: ec2-user
     Properties:
       SpotPrice: !Ref SpotPrice
-      KeyName: !Ref KeyName
+      # KeyName: your-private-key # Uncomment this if you want to SSH into the instances to see how it works
       ImageId: !Ref InstanceAMI
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref VoteProcessingEC2InstanceProfile
