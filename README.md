@@ -13,7 +13,6 @@ This project was created as part of the **ProjectGallery Challenge** from
 
 ![](docs/application_web_interface.png)
 
-
 In this example the benefits of this architecture may not be very clear, but if your back-end 
 does some slow processing like fraud checking before finishing an online order, it’s a good 
 practice to decouple it from the front-end to give your users a quick response. Another benefit
@@ -37,11 +36,47 @@ since this stack uses [nested stack](https://docs.aws.amazon.com/AWSCloudFormati
 The script also clones the Lambda and website code from git, and uploads them to their respective buckets.
 A shell script was necessary because those features aren't natively available from CloudFormation.
 
-**On Linux, run in your terminal:**
+### Running with Docker (recommended)
+To deploy the stack in your account, you could try running one of these steps in your terminal:
+
+#### Binding your credentials file (recommended)
+
+Replace `~/.aws/credentials` with the path for your credentials file, eg. `C:\Users\GusAntoniassi\.aws\credentials`
+
+```
+docker pull gusantoniassi/decoupled-sqs-application:latest
+
+docker run -it --rm \
+    -v ~/.aws/credentials:/root/.aws/credentials \
+    -e AWS_DEFAULT_REGION=us-east-1 \
+    gusantoniassi/decoupled-sqs-application:latest
+
+# You can pass other AWS CLI variables to the command too, like:
+# -e AWS_PROFILE=foobar
+```
+
+#### Passing your credentials to the command (not recommended)
+
+Not recommended for security reasons, since your secret access key would be in your shell command history.
+
+```
+docker pull gusantoniassi/decoupled-sqs-application:latest
+
+docker run -it --rm \
+    -e AWS_ACCESS_KEY_ID=AKIA123456890 \
+    -e AWS_SECRET_ACCESS_KEY=1234567890 \
+    -e AWS_DEFAULT_REGION=us-east-1 \
+    gusantoniassi/decoupled-sqs-application:latest
+```
+
+### Running with Linux
+
+Requires the following software installed: `jq`, `zip`, `git` and `bash`. Run in your terminal:
+
 ```bash
 # You need to configure your AWS credentials before running
 
-export AWS_DEFAULT_REGION="us-east-2" # Change to your AWS region of choice
+export AWS_DEFAULT_REGION="us-east-1"
 chmod +x ./deploy-stack.sh
 ./deploy-stack.sh
 ```
@@ -72,7 +107,7 @@ stack can only be deployed there, unless you change the CloudFormation code. I c
 create a `Mapping` with the AMI ID for every AWS region there is, and pick it dynamically
 based on the `AWS::Region` CloudFormation variable.
 
-- **Create a Docker deploy image:** I think the deploy script will only work on Linux 
+- ✔️ **Create a Docker deploy image:** I think the deploy script will only work on Linux 
 (and maybe Mac). A good way to solve this would be to use a Docker image to wrap the deployment script.
 
 ---
