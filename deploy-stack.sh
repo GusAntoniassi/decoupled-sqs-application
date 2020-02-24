@@ -45,9 +45,9 @@ fi
 update_stack_ignore_noop "templates-bucket" "s3/templates-bucket.yml"
 
 # Clone AWS Lambda code to upload it to bucket
-# rm -rf lambda/{source-code,source-code.zip}
-# git clone https://github.com/GusAntoniassi/decoupled-sqs-application-voting-api-lambda.git lambda/source-code
-# zip -j lambda/source-code.zip lambda/source-code/*
+rm -rf lambda/{source-code,source-code.zip}
+git clone https://github.com/GusAntoniassi/decoupled-sqs-application-voting-api-lambda.git lambda/source-code
+zip -j lambda/source-code.zip lambda/source-code/*
 
 TEMPLATES_BUCKET_NAME=$(aws cloudformation describe-stacks \
     --region="$AWS_DEFAULT_REGION" \
