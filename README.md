@@ -9,7 +9,7 @@ the backend processing, using SQS queues for that.
 The goal of this project was to create an application where users could vote for their favorite text editor 
 or programming IDE. The entire infrastructure was written as code, using CloudFormation.
 This project was created as part of the **ProjectGallery Challenge** from 
-**Bertelsmann Udacity Cloud Scholarship**.
+**Bertelsmann Udacity Cloud Scholarship**. Below is an example of the application look:
 
 ![](docs/application_web_interface.png)
 
@@ -41,8 +41,7 @@ A shell script was necessary because those features aren't natively available fr
 ```bash
 # You need to configure your AWS credentials before running
 
-# The CloudFormation was created in us-east-2, some of the CloudFormation might need to be changed to create it in another region
-export AWS_DEFAULT_REGION="us-east-2" 
+export AWS_DEFAULT_REGION="us-east-2" # Change to your AWS region of choice
 chmod +x ./deploy-stack.sh
 ./deploy-stack.sh
 ```
@@ -56,7 +55,7 @@ I have created a presentation for this project. Click the image below to access 
 ## Points of improvement
 
 Due to the time constraints, I couldn't bring this project to the level I wanted. 
-Here are some points where I could improve it:
+Here are some points where I could improve it (those marked with an ✔️ have already been done):
 
 - **Smarter queue scaling:** Currently the Spot fleet will scale up if there are 
 10 messages in the queue, and scale down if there are 0. But doing it this way 
@@ -68,10 +67,13 @@ to allow for better calculations and scaling alarms.
 document the shell script to be more clear. Maybe it would be good to ask for user
 input too, like the AWS region you want to deploy it.
 
-- **Allow every region:** Currently because the AMI ID I've used is in Ohio, the 
+- ✔️ **Allow every region:** Currently because the AMI ID I've used is in Ohio, the 
 stack can only be deployed there, unless you change the CloudFormation code. I could
 create a `Mapping` with the AMI ID for every AWS region there is, and pick it dynamically
 based on the `AWS::Region` CloudFormation variable.
+
+- **Create a Docker deploy image:** I think the deploy script will only work on Linux 
+(and maybe Mac). A good way to solve this would be to use a Docker image to wrap the deployment script.
 
 ---
 

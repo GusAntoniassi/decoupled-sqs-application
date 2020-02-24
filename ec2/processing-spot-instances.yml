@@ -30,7 +30,6 @@ Parameters:
       you might need to change this parameter. The default value is an
       Amazon Linux image in Ohio (us-east-2).
     Type: "String"
-    Default: ami-02ccb28830b645a41
   SpotPrice:
     Description: Spot price for application AutoScaling Group
     Type: Number
